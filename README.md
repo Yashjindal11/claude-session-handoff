@@ -1,6 +1,6 @@
 # Claude Session Handoff
 
-A small [Claude Code skill](https://code.claude.com/docs/en/skills) for continuing a project when a terminal session resets or loses its conversation context. It keeps **local, regularly updated** project context files, so a new session can read the important decisions, edits, verification, and next steps. Designed for environments such as MARS where files persist even if the Claude session does not.
+A small [Claude Code skill](https://code.claude.com/docs/en/skills) for continuing a project when a terminal session resets or loses its conversation context. It keeps **local, regularly updated** project context files, so a new session can read the important decisions, edits, verification, prompt-by-prompt changes, and next steps. Designed for environments such as MARS where files persist even if the Claude session does not.
 
 The public repository contains only the reusable instructions. Your project context is **not** uploaded here. The skill is prompt-driven, not a background recorder: a sudden reset can still lose work since the last checkpoint. It updates the relevant files after meaningful milestones and before a normal response; you can also save on demand.
 
@@ -10,11 +10,11 @@ From the root of the project you work on in MARS:
 
 ```sh
 mkdir -p .claude/skills/session-handoff
-curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/175ce20a1b0ce81015775aad6eac3450d1bc24c8/skill/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/v1.0.0/skill/SKILL.md \
   -o .claude/skills/session-handoff/SKILL.md
 ```
 
-The URL pins the current skill version so a cached branch URL cannot serve an older version. If you installed the earlier single-file skill, rerun the command to replace it. Alternatively, copy [`skill/SKILL.md`](skill/SKILL.md) to `.claude/skills/session-handoff/SKILL.md`. Install it in each project that needs handoffs. Start Claude Code from that project so it discovers the skill.
+The URL pins a version so a cached branch URL cannot serve an older version. If you installed an earlier skill, rerun the command to replace it. Alternatively, copy [`skill/SKILL.md`](skill/SKILL.md) to `.claude/skills/session-handoff/SKILL.md`. Install it in each project that needs handoffs. Start Claude Code from that project so it discovers the skill.
 
 ## Tiny prompt for each new Claude Code session
 
@@ -42,10 +42,11 @@ On first use, the skill creates this directory at the project root:
 ├── PROJECT.md       # Project orientation and enduring preferences
 ├── DECISIONS.md     # Decisions and their rationale
 ├── TASKS.md         # Active work, milestones, blockers, next steps
-└── VERIFICATION.md  # Commands, results, and remaining checks
+├── VERIFICATION.md  # Commands, results, and remaining checks
+└── PROMPT_HISTORY.md # Which request led to which changes
 ```
 
-Later sessions read `INDEX.md` and the other files, check them against the real workspace, and continue your request. The skill updates only the relevant files as work progresses. If you previously used the single-file version, it migrates useful information from `.claude/session-handoff.local.md` without deleting that file.
+Later sessions read `INDEX.md` and the other files, check them against the real workspace, and continue your request. The skill updates only the relevant files as work progresses. `PROMPT_HISTORY.md` records each user's request as a concise summary, then tracks the files changed, checks run, and outcome under that prompt. It starts an entry before the work so an unexpected reset leaves a visible in-progress record. It does not reconstruct prompts from earlier sessions that were never saved. If you previously used the single-file version, it migrates useful information from `.claude/session-handoff.local.md` without deleting that file.
 
 In Git projects, the skill adds the context directory to the **local Git exclude file** so it remains untracked without changing the project's shared `.gitignore`. The installed skill can be committed to your project if you want teammates to use it; the context stays local by default. If you explicitly choose to version the context, review it for sensitive information first and remove its local exclusion or force-add the files yourself.
 

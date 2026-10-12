@@ -10,11 +10,11 @@ From the root of the project you work on in MARS:
 
 ```sh
 mkdir -p .claude/skills/session-handoff
-curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/main/skill/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/175ce20a1b0ce81015775aad6eac3450d1bc24c8/skill/SKILL.md \
   -o .claude/skills/session-handoff/SKILL.md
 ```
 
-Alternatively, copy [`skill/SKILL.md`](skill/SKILL.md) to `.claude/skills/session-handoff/SKILL.md`. Install it in each project that needs handoffs. Start Claude Code from that project so it discovers the skill.
+The URL pins the current skill version so a cached branch URL cannot serve an older version. If you installed the earlier single-file skill, rerun the command to replace it. Alternatively, copy [`skill/SKILL.md`](skill/SKILL.md) to `.claude/skills/session-handoff/SKILL.md`. Install it in each project that needs handoffs. Start Claude Code from that project so it discovers the skill.
 
 ## Tiny prompt for each new Claude Code session
 

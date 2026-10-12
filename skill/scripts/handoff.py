@@ -16,7 +16,7 @@ import tempfile
 
 DIRECTORY = Path(".claude/session-handoff.local")
 SKILL_PATH = Path(".claude/skills/session-handoff/scripts/handoff.py")
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 TOPIC_FILES = ("INDEX.md", "PROJECT.md", "DECISIONS.md", "TASKS.md", "VERIFICATION.md")
 MAX_CURRENT_ENTRIES = 50
 START_MARKER = "<!-- session-handoff:start -->"
@@ -476,8 +476,9 @@ def main():
                 current["current_head"] = identity["head"]
                 current["branch_changed"] = current["baseline"]["branch"] != current["current_branch"]
                 current["stale_checks"] = [
-                    check["command"] for check in current["checks"]
-                    if check.get("fingerprint") != fingerprint
+                    "{}: {}".format(entry["id"], check["command"])
+                    for entry in state["entries"] for check in entry["checks"]
+                    if fingerprint is None or check.get("fingerprint") != fingerprint
                 ]
                 print(json.dumps(current, indent=2))
     elif args.action == "update":

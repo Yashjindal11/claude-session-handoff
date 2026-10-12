@@ -2,7 +2,7 @@
 name: session-handoff
 description: "Resume Claude Code after a reset or checkpoint ongoing work in local project context files. Use for session handoffs, prompt-by-prompt change history, decisions, tasks, verification, and recovery after inactivity."
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Session handoff

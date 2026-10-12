@@ -109,7 +109,7 @@ class HandoffTests(unittest.TestCase):
         (self.root / "tests/test_feature.py").write_text("def test_feature(): assert True\n",
                                                           encoding="utf-8")
         self.assertEqual(json.loads(self.command("status").stdout)["stale_checks"],
-                         ["python3 -m unittest"])
+                         ["P-0001: python3 -m unittest"])
         self.assertEqual(self.command("hook-stop", input_text=self.event("Stop", "request-1")).stdout, "")
         history = (self.root / handoff.DIRECTORY / "PROMPT_HISTORY.md").read_text(encoding="utf-8")
         self.assertIn("tests/test_feature.py", history)
@@ -117,6 +117,8 @@ class HandoffTests(unittest.TestCase):
         self.assertIn("- Status: completed", history)
         self.command("hook-begin", input_text=self.event("UserPromptSubmit", "request-2"))
         self.assertEqual(len(self.state()["entries"]), 2)
+        self.assertEqual(json.loads(self.command("status").stdout)["stale_checks"],
+                         ["P-0001: python3 -m unittest"])
 
     def test_stop_only_requests_one_continuation(self):
         self.command("install")
@@ -212,7 +214,7 @@ class HandoffTests(unittest.TestCase):
 
     def test_install_rejects_mismatched_skill(self):
         skill = self.root / ".claude/skills/session-handoff/SKILL.md"
-        skill.write_text(skill.read_text(encoding="utf-8").replace('"1.1.0"', '"1.0.0"'),
+        skill.write_text(skill.read_text(encoding="utf-8").replace('"1.1.1"', '"1.0.0"'),
                          encoding="utf-8")
         result = self.command("install", check=False)
         self.assertNotEqual(result.returncode, 0)

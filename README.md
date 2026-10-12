@@ -8,9 +8,9 @@ Run these commands from the project root (the worktree root in a Git project). R
 
 ```sh
 mkdir -p .claude/skills/session-handoff/scripts
-curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/v1.1.0/skill/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/v1.1.1/skill/SKILL.md \
   -o .claude/skills/session-handoff/SKILL.md
-curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/v1.1.0/skill/scripts/handoff.py \
+curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/v1.1.1/skill/scripts/handoff.py \
   -o .claude/skills/session-handoff/scripts/handoff.py
 python3 .claude/skills/session-handoff/scripts/handoff.py install
 ```

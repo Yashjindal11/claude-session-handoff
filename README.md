@@ -1,72 +1,57 @@
 # Claude Session Handoff
 
-A [Claude Code skill](https://code.claude.com/docs/en/skills) for environments such as MARS where the conversation resets but project files survive. It maintains **local, regularly updated** project context: decisions, tasks, verification, and a prompt-by-prompt change history. The public repository contains reusable instructions and tools, not your project's notes.
+An instruction-only [Claude Code skill](https://code.claude.com/docs/en/skills) for projects where a terminal conversation resets but files persist. Claude keeps concise local notes about the project, decisions, current work, checks, and which user request led to which changes. **No Python, packages, hooks, or project-specific runtime are needed.**
 
-## Install in an existing project
+## Install in a project
 
-Run these commands from the project root (the worktree root in a Git project). Requires Python 3.9+ on Linux or macOS; Git is optional. No GitHub login or backup repository is needed.
+From that project's root:
 
 ```sh
-mkdir -p .claude/skills/session-handoff/scripts
-curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/v1.1.1/skill/SKILL.md \
+mkdir -p .claude/skills/session-handoff
+curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/v1.2.0/skill/SKILL.md \
   -o .claude/skills/session-handoff/SKILL.md
-curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/v1.1.1/skill/scripts/handoff.py \
-  -o .claude/skills/session-handoff/scripts/handoff.py
-python3 .claude/skills/session-handoff/scripts/handoff.py install
 ```
 
-The versioned URLs pin an installation to known files. Rerun these commands to upgrade an older installation. The installer does not overwrite your existing local instructions or hook settings: it adds a short, marked block to `CLAUDE.local.md` and merges two hooks into `.claude/settings.local.json`. It is safe to rerun. **Restart Claude Code** after installing so the new instructions and hooks load. If either existing file is invalid or the local handoff is tracked by Git, installation stops with an error rather than erasing it or storing private context in a tracked path.
+Alternatively, copy [skill/SKILL.md](skill/SKILL.md) to `.claude/skills/session-handoff/SKILL.md`. Start a new Claude Code session from the project so the skill is discovered. This installation works regardless of the language used by the project.
 
-For non-Git projects, files remain in the working directory. For Git projects, the installer excludes the context directory, `CLAUDE.local.md`, and `.claude/settings.local.json` using the repository's local Git exclude file, not its shared `.gitignore`. You can commit the installed skill itself to share it with teammates; their local handoffs stay separate.
+## Use it
 
-## One short prompt per new session
+At the start of a new session:
 
 ```text
 /session-handoff Resume from the saved handoff, then: <your task>
 ```
 
-To save without a new task:
+For an important new request in the same session, invoke it again with the new task. To save without starting another task:
 
 ```text
 /session-handoff Save a checkpoint of the current work.
 ```
 
-The `UserPromptSubmit` hook begins a numbered, **raw-prompt-free** entry before each turn. An always-loaded local reminder tells Claude to update the relevant files after milestones. The `Stop` hook requests a final checkpoint if the entry remains open; it allows stopping after one reminder to avoid an infinite loop. Hooks can also run on scheduled or automated turns, not just messages typed by a person.
-
-The local files are:
+The skill asks Claude to create and update these files in `.claude/session-handoff.local/`:
 
 ```text
-.claude/session-handoff.local/
-├── INDEX.md           # Start here: current focus, next step, links
-├── PROJECT.md         # Architecture, paths, commands, preferences
-├── DECISIONS.md       # Dated decisions and superseded choices
-├── TASKS.md           # Active work, milestones, blockers
-├── VERIFICATION.md    # Observed test results and stale checks
-├── PROMPT_HISTORY.md  # Recent request-to-change entries
-└── archive/           # Older completed entries, by month
+INDEX.md           Short entrypoint and next action
+PROJECT.md         Project orientation and lasting preferences
+DECISIONS.md       Decisions and rationale
+TASKS.md           Active work and blockers
+VERIFICATION.md    Commands, results, and stale checks
+PROMPT_HISTORY.md  Dated entries linking requests to actual changes
 ```
 
-The helper also keeps an internal state file and lock in that excluded directory. Topic-file updates use a SHA-256 precondition and atomic replacement so overlapping sessions cannot silently overwrite each other's work. History updates take a file lock. `status` reports the starting and current branch/HEAD and flags checks when the worktree changes after they were recorded. The helper cannot determine whether a reported test actually ran or distinguish every human edit from an agent edit; Claude must inspect the real workspace.
+Claude should check the real working tree before trusting old notes, start an `in progress` entry before work, update relevant files at milestones, and record the outcome before responding. In a Git project it should exclude the handoff directory locally, without changing the shared `.gitignore`. No Git action or backup repository is required from the user.
 
-On first use after the older single-file version, the installer retains `.claude/session-handoff.local.md` and links to it from `INDEX.md`. Ask Claude to transfer still-relevant facts to the new topic files; it must not fabricate missing earlier prompts.
+**This is intentionally simpler, but less automatic than the older version.** There is no hook or background process to capture prompts or force a save. A reset can lose progress since the last checkpoint, and Claude must actually follow the skill instructions. The history uses safe summaries, not full transcripts. If the entire project directory disappears, so do local notes; a private backup is optional, not required.
 
-## Try it
+## Upgrading from the older hook-based version
 
-The [two-prompt walkthrough](examples/two-prompts.md) shows the files after a task, a reset, and a resumed task. To test the helper without a Claude Code account:
+The handoff files and their history are still useful. Install the new skill, then ask:
 
-```sh
-python3 -m unittest discover -s tests -v
+```text
+/session-handoff Migrate this project from the older hook-based handoff. Keep all context files; remove only the old handoff hooks and marked local reminder.
 ```
 
-Tests simulate hook inputs, interrupted and completed prompts, concurrent sessions, Git exclusions, migration, archives, and stale writes. Running inside Claude Code is still necessary to confirm that your particular MARS version supports the hooks; use `/context` to check that `CLAUDE.local.md` loaded.
-
-## Privacy, backups, and limits
-
-The helper does **not** copy the raw prompt into the handoff; Claude should save only a safe summary. Do not include credentials, private customer data, environment-file contents, or large code dumps in the context files. Their local Git exclusion is not a security boundary if you deliberately copy, stage, or upload them.
-
-If MARS deletes the entire working directory, these local files disappear too. If that is a concern, you *may* periodically copy the directory to a private location or private repository after reviewing it for sensitive content. **Backups and Git operations are optional**, never automatic, and are not required for normal use.
-
-This is not a background recorder. A sudden reset or interruption can lose progress made since the last checkpoint, and the Stop hook does not run on a user interrupt or API error. The beginning of the next prompt should still show an in-progress entry; Claude must inspect and reconcile it with the actual workspace. The tool supports Python 3.9+ on Linux/macOS and uses only the standard library.
+Claude should first check whether the old `.state.json` contains entries missing from the Markdown history, then remove only the old session-handoff handlers from `.claude/settings.local.json` and the `session-handoff:start` / `session-handoff:end` block in `CLAUDE.local.md`. Preserve unrelated settings and instructions. **Restart Claude Code** after that cleanup; hooks from the old session might still be active until restart. The retired helper under `.claude/skills/session-handoff/scripts/` can then be removed. Do not remove `.claude/session-handoff.local/` or its archived history. Older release tags remain available for people who still use them.
 
 ## License
 

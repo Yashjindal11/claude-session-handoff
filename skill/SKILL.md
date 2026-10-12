@@ -1,8 +1,6 @@
 ---
 name: session-handoff
-description: "Resume Claude Code after a reset or checkpoint ongoing work in local project context files. Use for session handoffs, prompt-by-prompt change history, decisions, tasks, verification, and recovery after inactivity."
-metadata:
-  version: "1.1.1"
+description: "Use when resuming Claude Code after a reset, saving a checkpoint, or keeping project context across sessions. Maintain local project notes, decisions, tasks, verification, and a prompt-by-prompt change history."
 ---
 
 # Session handoff
@@ -11,55 +9,49 @@ The user's request for this invocation is:
 
 $ARGUMENTS
 
-Use this workflow in the project where Claude Code was started. The durable context lives in `<project-root>/.claude/session-handoff.local/`. The project root is the Git worktree root if there is one, otherwise the current working directory. The installed helper is `.claude/skills/session-handoff/scripts/handoff.py`. If the helper, local instructions, or hooks have not been installed, explain how to install them from the README; do not claim automatic checkpoints are active.
+This is an instruction-only skill: no scripts, hooks, packages, or language runtime are required. Work in the current project, using its Git worktree root if available, otherwise the directory where Claude Code was started. Keep the handoff in `<project-root>/.claude/session-handoff.local/`, not in this skill's repository unless it is the project itself.
 
-## On each request or after a reset
+## Start or resume
 
-1. The `UserPromptSubmit` hook starts a numbered entry before Claude works, without persisting the raw prompt. Run `python3 .claude/skills/session-handoff/scripts/handoff.py status` to see its ID, starting branch/HEAD, and pre-existing dirty paths. If the expected entry is missing, explain that the hook may be disabled or Claude Code may need restarting. Never fabricate a prompt history.
-2. Read `INDEX.md`, then the relevant topic files and recent `PROMPT_HISTORY.md` entries. Read archives only if needed. Check `git status --short` in Git projects and inspect the actual files before trusting any saved claim. If the branch changed, treat previous test results and task state as potentially stale. The user's latest instructions take precedence.
-3. If `.claude/session-handoff.local.md` exists from the old version, read it, transfer still-relevant facts into the topic files, and mark the migration in `INDEX.md`. Do not delete or silently overwrite the old file. If a previous request remained in progress, reconcile it against the actual workspace; do not assume it finished.
-4. Safely summarize the *current* request in its prompt entry promptly, then do the task. If asked only to save a checkpoint, record current verified state and stop. If there is no new task, summarize the saved state and concrete next step without inventing work.
+1. In a Git project, check the working tree and branch/HEAD. Read `INDEX.md` first if it exists, then relevant topic files and recent entries in `PROMPT_HISTORY.md`. Verify saved claims against actual files; a recorded test result is not proof it still applies after changes. If files are missing, create them using the layout below. Never invent conversation history that was not saved.
+2. Keep notes local by default. If this is a Git project, check whether files under `.claude/session-handoff.local/` are already tracked. If they are, warn the user before writing private context: adding an ignore rule cannot hide tracked files. Otherwise add `/.claude/session-handoff.local/` once to the repository's local exclude file, located with `git rev-parse --git-path info/exclude`; verify Git ignores a file in the directory. Do not edit the shared `.gitignore`, stage, commit, or push notes unless the user explicitly requests it. If exclusion fails, report it before saving potentially sensitive context.
+3. If the older `.claude/session-handoff.local.md` exists, read it and carry still-relevant facts into the topic files; leave it intact. Reuse existing topic files and prompt history from earlier versions rather than starting over.
+4. Before doing the requested work, add an `in progress` entry for this request in `PROMPT_HISTORY.md`: timestamp, a short safe summary of the request, the next sequential ID (`P-0001`, `P-0002`, ...), and starting branch/HEAD and pre-existing dirty paths when available. Do not copy the raw prompt or attribute pre-existing work to yourself. If there is no specific task, summarize the current state and next action instead of guessing what to implement.
 
-## Save progress
+## While working
 
-- After each meaningful milestone, update only the relevant files; save again before responding. Do not rely only on the `Stop` hook: it cannot run on a sudden reset or user interrupt. The local `CLAUDE.local.md` keeps this instruction in future sessions; the `Stop` hook requests a missing final checkpoint once and then allows stopping with a warning to avoid a loop.
-- Use the helper for every handoff-file write. It locks concurrent writers and replaces files atomically. First get the existing topic file's hash, then supply that hash when writing its complete updated text. If it changed in the meantime, reread and merge; never force-overwrite someone else's work:
+- Update only the relevant files after each meaningful milestone: a requirement or decision, an edit, a test result, a blocker, or a change in next steps. Update the entry again before responding, marking it `completed`, `blocked`, or still `in progress` with the exact next action. If saving fails, tell the user; never claim a checkpoint was saved when it was not.
+- Record which files **you actually changed** for this request and why. Check the starting Git status and the current workspace to avoid crediting yourself for another person's changes. Record verification commands and observed results, or explicitly say they were not run. Treat earlier checks as potentially stale after code or branch changes.
+- Keep `INDEX.md` brief and current. Keep decisions with their rationale; mark superseded choices rather than erasing why they were made. Preserve earlier prompt entries. If history grows unwieldy, move older completed entries to dated files under `archive/` and link them from `INDEX.md`; do not discard them.
+- Never put credentials, tokens, environment-file contents, private customer data, or large code/output dumps in the handoff. Use short safe summaries and relative file paths. If another session changed a note while you were working, reread and merge rather than overwriting it.
 
-  ```sh
-  python3 .claude/skills/session-handoff/scripts/handoff.py hash TASKS.md
-  python3 .claude/skills/session-handoff/scripts/handoff.py write TASKS.md --expected-hash <hash> <<'TEXT'
-  # Tasks
+## Local files
 
-  Updated: YYYY-MM-DD HH:MM with time zone
+Each file begins with an `Updated: YYYY-MM-DD HH:MM with time zone` line after its title. Create only verified content; leave unknown details as unknown.
 
-  ## Active work
-  - Actual verified state and next action.
-  TEXT
-  ```
-
-- Update the current prompt record after each change or check, and finalize it before stopping. Supply concise, safe JSON on stdin (replace `P-0001` with the ID reported by `status`):
-
-  ```sh
-  python3 .claude/skills/session-handoff/scripts/handoff.py update P-0001 <<'JSON'
-  {"summary":"Add login tests","changes":[{"path":"tests/login.test.ts","description":"Added coverage for invalid tokens"}],"checks":[{"command":"npm test -- login","result":"passed"}],"outcome":"Tests added; no remaining blocker","status":"completed"}
-  JSON
-  ```
-
-  You may omit fields not yet known and leave status `in progress` during work. Updates append unique changes/checks to the entry. Report "no project files changed" in the outcome if nothing changed. The helper records the current HEAD and worktree fingerprint for checks; `status` lists checks that became stale after subsequent changes. Still verify actual results yourself: a hash cannot prove a command ran.
-- Compare each changed path with the prompt's starting Git status and your own edits. A pre-existing dirty file is not automatically your change, and another session may edit it concurrently. Use relative paths and distinguish saved edits from proposals. If a topic file is stale or a write/check fails, tell the user explicitly; never claim a checkpoint was saved when it was not.
-- Never copy secrets, tokens, credentials, environment-file contents, private customer data, or large source/output dumps into handoff files or JSON arguments. Use safe summaries, not full prompts. Do not stage, commit, or upload local context without explicit instruction.
-
-## Context files
-
-The helper creates these files under `.claude/session-handoff.local/`. Each topic file has an `Updated: YYYY-MM-DD HH:MM with time zone` line. Keep entries concise and current while preserving the history needed to understand decisions.
-
-| File | Keep up to date with |
+| File | Purpose |
 | --- | --- |
-| `INDEX.md` | Short entrypoint: current focus, branch/HEAD checked on resume, first concrete next action, and relative links to the other topic files. |
-| `PROJECT.md` | Stable orientation: project purpose, relevant architecture and paths, build/test commands, and enduring user preferences. |
-| `DECISIONS.md` | Dated decisions with rationale. Mark old choices as superseded by newer decisions rather than erasing their history. |
-| `TASKS.md` | Active work, acceptance criteria, completed milestones, blockers, and exact next steps. Mark incomplete work explicitly. |
-| `VERIFICATION.md` | Commands, dates, observed results, relevant prompt IDs and HEAD, untested changes, and checks made stale by later edits. |
-| `PROMPT_HISTORY.md` | Helper-generated recent prompt-to-change entries; do not edit this file manually. Older completed entries move to `archive/YYYY-MM.md` after 50 entries. |
+| `INDEX.md` | Short entrypoint: current focus, next action, branch if relevant, and links to the other files. |
+| `PROJECT.md` | Stable orientation: architecture, relevant paths and commands, and enduring preferences. |
+| `DECISIONS.md` | Dated decisions, reasons, and superseding decisions. |
+| `TASKS.md` | Current requirements, completed work, blockers, and concrete next steps. |
+| `VERIFICATION.md` | Dated commands, actual results, untested work, and checks made stale by later edits. |
+| `PROMPT_HISTORY.md` | Chronological request-to-change entries. Update the current entry at milestones; retain completed entries. |
 
-Treat the local files as a lead, never as proof that code or tests are current. On completion, tell the user where the handoff was saved and whether Git excludes it. Optional private backup outside the workspace is recommended if files might be deleted, but never required or automatic.
+Use this shape for each prompt-history entry:
+
+```markdown
+## P-0001 - YYYY-MM-DD HH:MM with time zone
+- Request: Safe, concise summary of the user's instruction.
+- Status: in progress
+- Starting state: Branch/HEAD and pre-existing dirty paths, if known.
+- Changes: None yet; later list relative paths and what changed.
+- Checks: Not run yet; later list commands and observed results.
+- Outcome / next step: Pending; later record the result or blocker.
+```
+
+## Previous installations
+
+If this project used the older hook-based version, its context files remain useful. On request to migrate, compare `.state.json` with `PROMPT_HISTORY.md` and the archives; carry over any entries missing from Markdown before retiring the old helper. Remove **only** the old session-handoff `UserPromptSubmit` and `Stop` hook handlers from `.claude/settings.local.json` and the block between `<!-- session-handoff:start -->` and `<!-- session-handoff:end -->` in `CLAUDE.local.md`. Preserve all other hooks, settings, instructions, and handoff files. Tell the user to restart Claude Code because old hooks may remain loaded in the current session. After that restart, the old `.claude/skills/session-handoff/scripts/handoff.py` can be removed; never delete the topic files or history while cleaning up. If those files are absent, there is nothing to migrate.
+
+This skill works only when invoked and followed: it cannot run on an inactivity timer or guarantee an update after a sudden reset. Invoke `/session-handoff` at the start of each new session and for important new requests; ask it to save a checkpoint before a long break. Tell the user where notes were saved and whether Git excludes them. An optional private backup is sensible if the entire workspace could be deleted, but it is never required or automatic.

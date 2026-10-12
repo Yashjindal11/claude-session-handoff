@@ -1,8 +1,8 @@
 # Claude Session Handoff
 
-A small [Claude Code skill](https://code.claude.com/docs/en/skills) for continuing a project when a terminal session resets or loses its conversation context. It keeps a compact, **local** handoff file in the working project, so a new session can read the important decisions, edits, verification, and next steps. Designed for environments such as MARS where files persist even if the Claude session does not.
+A small [Claude Code skill](https://code.claude.com/docs/en/skills) for continuing a project when a terminal session resets or loses its conversation context. It keeps **local, regularly updated** project context files, so a new session can read the important decisions, edits, verification, and next steps. Designed for environments such as MARS where files persist even if the Claude session does not.
 
-The public repository contains only the reusable instructions. Your project handoffs are **not** uploaded here. The skill is prompt-driven, not a background recorder: a sudden reset can still lose work since the last checkpoint. It updates the file after meaningful milestones and before a normal response; you can also save on demand.
+The public repository contains only the reusable instructions. Your project context is **not** uploaded here. The skill is prompt-driven, not a background recorder: a sudden reset can still lose work since the last checkpoint. It updates the relevant files after meaningful milestones and before a normal response; you can also save on demand.
 
 ## Install in a project
 
@@ -34,9 +34,22 @@ To save right now without starting another task:
 /session-handoff Save a checkpoint of the current work.
 ```
 
-On first use, the skill creates `.claude/session-handoff.local.md` at the project root. Later sessions read it and check the real workspace before continuing. In Git projects, the skill adds the handoff path to the **local Git exclude file** so it remains untracked without changing the project's shared `.gitignore`. The installed skill can be committed to your project if you want teammates to use it; the handoff stays local by default. If you explicitly choose to version a handoff, review it for sensitive information first and remove its local exclusion or force-add the file yourself.
+On first use, the skill creates this directory at the project root:
 
-The handoff summarizes important context rather than attempting to recreate every message. It does not replace committed code, tests, or a review of the current working tree. If the project directory is deleted between sessions, the local handoff disappears too; back it up separately if you need that level of durability.
+```text
+.claude/session-handoff.local/
+├── INDEX.md         # Short entrypoint and links to the other files
+├── PROJECT.md       # Project orientation and enduring preferences
+├── DECISIONS.md     # Decisions and their rationale
+├── TASKS.md         # Active work, milestones, blockers, next steps
+└── VERIFICATION.md  # Commands, results, and remaining checks
+```
+
+Later sessions read `INDEX.md` and the other files, check them against the real workspace, and continue your request. The skill updates only the relevant files as work progresses. If you previously used the single-file version, it migrates useful information from `.claude/session-handoff.local.md` without deleting that file.
+
+In Git projects, the skill adds the context directory to the **local Git exclude file** so it remains untracked without changing the project's shared `.gitignore`. The installed skill can be committed to your project if you want teammates to use it; the context stays local by default. If you explicitly choose to version the context, review it for sensitive information first and remove its local exclusion or force-add the files yourself.
+
+The files summarize important context rather than attempting to recreate every message. They do not replace committed code, tests, or a review of the current working tree. If the project directory is deleted between sessions, the local context disappears too; back it up separately if you need that level of durability.
 
 ## License
 

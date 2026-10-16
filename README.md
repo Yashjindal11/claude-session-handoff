@@ -8,7 +8,7 @@ From that project's root:
 
 ```sh
 mkdir -p .claude/skills/session-handoff
-curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/v1.2.0/skill/SKILL.md \
+curl -fsSL https://raw.githubusercontent.com/Yashjindal11/claude-session-handoff/v1.2.1/skill/SKILL.md \
   -o .claude/skills/session-handoff/SKILL.md
 ```
 
@@ -28,7 +28,9 @@ For an important new request in the same session, invoke it again with the new t
 /session-handoff Save a checkpoint of the current work.
 ```
 
-The skill asks Claude to create and update these files in `.claude/session-handoff.local/`:
+When invoked inside a Git project, the skill uses `git rev-parse --show-toplevel` to find **that project's root**. It creates or reuses `<project-root>/.claude/session-handoff.local/` there, alongside the project's files, **not inside `.git`**. It does not initialize Git or require the user to manage commits. If the current directory is not in a Git worktree, Claude asks whether to keep handoff notes in that directory; it creates nothing unless the user agrees. Git is optional.
+
+The skill asks Claude to create and update these files in the chosen project's `.claude/session-handoff.local/` directory:
 
 ```text
 INDEX.md           Short entrypoint and next action
